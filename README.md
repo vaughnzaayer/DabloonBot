@@ -8,6 +8,8 @@ drawing, or taking a picture of your pet. Upon completing a bounty, the user
 will be awarded with **dabloons**, which can be held for bragging rights or exchanged with your
 friends for favors.
 
+![Minos Wants Bounties](images/i_want_bounties.png)
+
 ## Setup
 This project uses the `discord` (also known as *discord py*) and the `python-dotenv` 
 libraries. To run the bot, you will need to acquire [a bot token](https://www.writebots.com/discord-bot-token/), as well
