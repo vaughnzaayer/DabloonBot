@@ -21,6 +21,13 @@ class DabloonUser:
         pass
 
 
+class ClaimRequest:
+    def __init__(self, claimee: DabloonUser, description: str = None, media: [discord.Attachment] = None):
+        self.claimee = claimee
+        self.description = description
+        self.media = media
+
+
 class DabloonBounty:
     def __init__(self, title: str, author: DabloonUser, rewardAmount: int, claimAmount: str = 1,
                  totalClaimAmount: str = None, image: discord.Attachment = None,
@@ -30,21 +37,23 @@ class DabloonBounty:
         self.reward = rewardAmount
         self.claimAmount = claimAmount
         self.totalClaimAmount = totalClaimAmount
-        self.claimedBy = {}
-        self.pendingClaims = {}
+        self.claimedBy: {DabloonUser: int} = {}
+        self.pendingClaims: [ClaimRequest] = []
         self.image = image
         self.description = description
         self.url = url
         self.creationDate = datetime.date.today()
 
-    def user_claim(self, user):
-        if user in self.claimedBy or self.claimedBy[user] == self.claimAmount:
-            return
+    def user_claim(self, request):
+        self.pendingClaims.append(request)
 
-    def approve_claim(self, user):
-        pass
+    def approve_claim(self, request):
+        request.claimee.add_dabloons(self.reward)
+        self.claimedBy[request.claimee] += 1
+        del request
+
+    def reject_claim(self, request):
+        del request
 
 
-class ClaimRequest:
-    def __init__(self, bounty: DabloonBounty, claimee: DabloonUser):
-        pass
+

@@ -1,3 +1,4 @@
+import copy
 import string
 
 import discord
@@ -73,6 +74,21 @@ async def delete_bounty_autocomplete(interaction: discord.Interaction, current: 
     ]
 
 
+async def message_bounty_author(interaction: discord.Interaction, bounty: dabloons.DabloonBounty,
+                                request: dabloons.ClaimRequest):
+    bountyAuthor = client.get_user(bounty.author.id)
+    dm_channel = await client.create_dm(bountyAuthor)
+
+    await dm_channel.send(f'**{client.get_user(request.claimee.id).display_name}** has sent you claim request '
+                          f'on your bounty: *{bounty.title}*')
+
+
+async def check_if_user(interaction: discord.Interaction):
+    if interaction.user.id not in Users:
+        return False
+    return True
+
+
 # Commands
 @tree.command(name='add_dabloon_user', description='Adds a new user to the dabloon bank')
 async def add_dabloon_user(interaction: discord.Interaction, user: discord.User):
@@ -133,10 +149,19 @@ async def delete_bounty(interaction: discord.Interaction, title: str):
 @tree.command(name='claim_bounty', description='Claim a bounty that is currently posted')
 @app_commands.autocomplete(bounty=claim_bounty_autocomplete)
 async def claim_bounty(interaction: discord.Interaction, bounty: str):
+    await interaction.response.defer()
     if bounty not in Bounties:
         await interaction.response.send_message('Please enter a valid bounty name')
         return
-    await interaction.response.send_message('Done!')
+
+    target_bounty = Bounties[bounty]
+    request = dabloons.ClaimRequest(claimee=target_bounty.author)
+
+    await message_bounty_author(interaction=interaction, bounty=target_bounty,
+                                request=request)
+    target_bounty.pendingClaims.append(request)
+
+    await interaction.followup.send('Done!')
 
 
 @tree.command(name='display_bounty', description='Display a bounty\'s information')
@@ -170,6 +195,27 @@ async def display_bounty(interaction: discord.Interaction, bounty: str):
     embed.set_footer(text=f'{Bounties[bounty].creationDate}')
 
     await interaction.response.send_message(embed=embed)
+
+
+@tree.command(name='check_pending_bounty_requests', description='See the pending requests for your bounties')
+async def check_pending_bounty_requests(interaction: discord.Interaction):
+    if not await check_if_user(interaction=interaction):
+        await interaction.response.send_message('You are not a Dabloon user')
+        return
+
+    userBountyClaims: {str: dabloons.DabloonBounty.pendingClaims} = {}
+    for bounty in Bounties:
+        if Bounties[bounty].author.id == interaction.user.id:
+            userBountyClaims[bounty] = []
+            for pending in Bounties[bounty].pendingClaims:
+                userBountyClaims[bounty].append(client.get_user(pending.claimee.id).display_name)
+
+    claimsEmbed = discord.Embed(title='Pending Bounty Claims')
+
+    for claim in userBountyClaims:
+        claimsEmbed.add_field(name=claim, value=f'Claims: {userBountyClaims[claim]}')
+
+    await interaction.response.send_message(embed=claimsEmbed)
 
 
 client.run(TOKEN)
