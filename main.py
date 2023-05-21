@@ -63,13 +63,17 @@ async def claim_bounty_autocomplete(interaction: discord.Interaction, current: s
 
 async def delete_bounty_autocomplete(interaction: discord.Interaction, current: str) -> [app_commands.Choice[str]]:
     bounty_author = interaction.user.id
-    bounty_names = [name for name in Bounties if name.author.id == bounty_author]
+    bounty_names = []
+    for name in Bounties:
+        if Bounties[name].author.id == bounty_author:
+            bounty_names.append(name)
     return [
         app_commands.Choice(name=bounty, value=bounty)
         for bounty in bounty_names if current.lower() in bounty.lower()
     ]
 
 
+# Commands
 @tree.command(name='add_dabloon_user', description='Adds a new user to the dabloon bank')
 async def add_dabloon_user(interaction: discord.Interaction, user: discord.User):
     members = await get_all_users(interaction)
@@ -91,7 +95,7 @@ async def add_dabloon_user(interaction: discord.Interaction, user: discord.User)
 @app_commands.describe(image='Any related media you would like to add to your bounty')
 @app_commands.describe(description='Give a brief description of your bounty')
 @app_commands.describe(total_claim_limit='The *total* number of times this bounty can be claimed')
-@app_commands.describe(url='A url related to ')
+@app_commands.describe(url='A url related to the bounty')
 async def add_new_bounty(interaction: discord.Interaction, title: str, reward_amount: int, claim_limit: int = 1,
                          total_claim_limit: int = 1, image: discord.Attachment = None, description: str = None,
                          url: str = None):
@@ -116,9 +120,11 @@ async def add_new_bounty(interaction: discord.Interaction, title: str, reward_am
 async def delete_bounty(interaction: discord.Interaction, title: str):
     if title not in Bounties:
         await interaction.response.send_message('That bounty does not exist')
+        return
 
-    if Bounties[title].author != interaction.user:
+    if Bounties[title].author.id != interaction.user.id:
         await interaction.response.send_message('You can only delete your own bounties')
+        return
 
     del Bounties[title]
     await interaction.response.send_message('Bounty successfully deleted')
@@ -160,6 +166,8 @@ async def display_bounty(interaction: discord.Interaction, bounty: str):
 
     if Bounties[bounty].totalClaimAmount:
         embed.add_field(name='Global Claim Amount', value=f'{Bounties[bounty].totalClaimAmount}', inline=True)
+
+    embed.set_footer(text=f'{Bounties[bounty].creationDate}')
 
     await interaction.response.send_message(embed=embed)
 

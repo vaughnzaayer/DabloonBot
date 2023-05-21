@@ -1,5 +1,6 @@
 import discord
 import json
+import datetime
 
 
 class DabloonUser:
@@ -34,6 +35,7 @@ class DabloonBounty:
         self.image = image
         self.description = description
         self.url = url
+        self.creationDate = datetime.date.today()
 
     def user_claim(self, user):
         if user in self.claimedBy or self.claimedBy[user] == self.claimAmount:
