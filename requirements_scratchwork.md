@@ -29,3 +29,11 @@
 2. a claim request (containing all related info and media) will be sent via DM to the author to approve/disapprove
    1. if a claim is accepted, the bounty reward will be given to the claimee and the media will be posted to the relevant channel
    2. if a claim is denied, the claimee will be notified via DM and the request will be deleted
+
+### Functionality
+
+#### Bounty
+- Display bounty + bounty info
+
+#### User
+- Display user + user info
