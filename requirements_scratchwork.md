@@ -33,7 +33,9 @@
 ### Functionality
 
 #### Bounty
-- Display bounty + bounty info
+- `display_bounty` Display bounty + bounty info
+- `claim_bounty`
+- `delete_bounty`
 
 #### User
 - Display user + user info
