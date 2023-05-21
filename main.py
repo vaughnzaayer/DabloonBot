@@ -68,7 +68,10 @@ async def add_dabloon_user(interaction: discord.Interaction, user: discord.User)
 
 
 @tree.command(name='add_new_bounty', description='Adds a new bounty')
-async def add_new_bounty(interaction: discord.Interaction, title: str, reward_amount: int, claim_limit: int = 1):
+@app_commands.describe(title='Name of the bounty')
+@app_commands.describe(reward_amount='Number of dabloons awarded to a claimee')
+@app_commands.describe(claim_limit='Number of times a user can claim the bounty (defaults to 1)')
+async def add_new_bounty(interaction: discord.Interaction, title: str, reward_amount: int, claim_limit: int = 1, total_claim_limit: int =1):
     if title in Bounties:
         await interaction.response.send_message(f'This bounty already exists')
         return
@@ -77,7 +80,7 @@ async def add_new_bounty(interaction: discord.Interaction, title: str, reward_am
         await interaction.response.send_message(f'You need to be registered to post a bounty')
         return
 
-    newBounty = dabloons.DabloonBounty(title, Users[interaction.user.id], reward_amount, claim_limit)
+    newBounty = dabloons.DabloonBounty(title=title, author=Users[interaction.user.id], rewardAmount=reward_amount, claimAmount=claim_limit, totalClaimAmount=total_claim_limit)
     Bounties[title] = newBounty
     await interaction.response.send_message(f'Bounty registered')
 
@@ -93,6 +96,9 @@ async def claim_bounty_autocomplete(interaction: discord.Interaction, current: s
 @tree.command(name='claim_bounty', description='Claim a bounty that is currently posted')
 @app_commands.autocomplete(bounty=claim_bounty_autocomplete)
 async def claim_bounty(interaction: discord.Interaction, bounty: str):
+    if bounty not in Bounties:
+        await interaction.response.send_message('Please enter a valid bounty name')
+        return
     await interaction.response.send_message('Done!')
 
 

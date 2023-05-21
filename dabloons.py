@@ -21,11 +21,12 @@ class DabloonUser:
 
 
 class DabloonBounty:
-    def __init__(self, title, author: DabloonUser, rewardAmount: int, claimAmount = 1):
+    def __init__(self, title, author: DabloonUser, rewardAmount: int, claimAmount: str = 1, totalClaimAmount: str = None):
         self.title = title
         self.author = author
         self.reward = rewardAmount
         self.claimAmount = claimAmount
+        self.totalClaimAmount = totalClaimAmount
         self.claimedBy = {}
         self.pendingClaims = {}
 
