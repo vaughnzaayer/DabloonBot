@@ -155,7 +155,7 @@ async def claim_bounty(interaction: discord.Interaction, bounty: str):
         return
 
     target_bounty = Bounties[bounty]
-    request = dabloons.ClaimRequest(claimee=target_bounty.author)
+    request = dabloons.ClaimRequest(claimee=Users[interaction.user.id])
 
     await message_bounty_author(interaction=interaction, bounty=target_bounty,
                                 request=request)
