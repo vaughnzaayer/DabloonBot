@@ -6,11 +6,15 @@ import json
 import os
 import dabloons
 import enum
+import asyncio
 
 from os import environ
 from dotenv import load_dotenv
 from discord import app_commands
 from discord.ext import commands
+import logging
+
+from discord.client import _log
 
 import dabloons
 
@@ -19,14 +23,58 @@ USER_DATA = "data/users.json"
 
 load_dotenv()
 
+TOKEN = environ["DISCORD_TOKEN"]
+ONE_DABLOON_EMOJI_NAME = environ["ONE_DABLOON_EMOJI"]
+FIVE_DABLOON_EMOJI_NAME = environ["FIVE_DABLOON_EMOJI"]
+TEN_DABLOON_EMOJI_NAME = environ["TEN_DABLOON_EMOJI"]
+
 
 class DabloonBot(discord.Client):
 
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
         self.synced = False
+        self.oneDabloonEmoji = None
+        self.fiveDabloonEmoji = None
+        self.tenDabloonEmoji = None
+        self.emojiEnabledGuilds: {discord.Guild: {str: discord.Emoji.id}} = {}
+
+        if ONE_DABLOON_EMOJI_NAME != "":
+            self.oneDabloonEmoji = ONE_DABLOON_EMOJI_NAME
+        if self.fiveDabloonEmoji != "":
+            self.fiveDabloonEmoji = FIVE_DABLOON_EMOJI_NAME
+        if self.tenDabloonEmoji != "":
+            self.tenDabloonEmoji = TEN_DABLOON_EMOJI_NAME
+
+    async def validate_emojis(self):
+        async for guild in self.fetch_guilds(limit=10):
+            emojis: {str: discord.Emoji.id} = {}
+            for emoji in await guild.fetch_emojis():
+                emojis[emoji.name] = emoji.id
+            emojisValid = True
+            _log.info(f'Validating Emojis for {guild.name}.\nComplete Emoji List:{emojis}')
+
+            if self.oneDabloonEmoji:
+                if self.oneDabloonEmoji not in emojis:
+                    _log.warning(f'Emoji Validation failed: {self.oneDabloonEmoji} is not in {guild.name}')
+                    emojisValid = False
+            if self.fiveDabloonEmoji:
+                if self.fiveDabloonEmoji not in emojis:
+                    _log.warning(f'Emoji Validation failed: {self.fiveDabloonEmoji} is not in {guild.name}')
+                    emojisValid = False
+            if self.tenDabloonEmoji:
+                if self.tenDabloonEmoji not in emojis:
+                    _log.warning(f'Emoji Validation failed: {self.tenDabloonEmoji} is not in {guild.name}')
+                    emojisValid = False
+
+            if emojisValid:
+                _log.info(f'{guild.name} validated')
+                self.emojiEnabledGuilds[guild] = {f'{ONE_DABLOON_EMOJI_NAME}': emojis[f'{ONE_DABLOON_EMOJI_NAME}'],
+                                                  f'{FIVE_DABLOON_EMOJI_NAME}': emojis[f'{FIVE_DABLOON_EMOJI_NAME}'],
+                                                  f'{TEN_DABLOON_EMOJI_NAME}': emojis[f'{TEN_DABLOON_EMOJI_NAME}']}
 
     async def on_ready(self):
+        await self.validate_emojis()
         await tree.sync()
         self.synced = True
         print(f'Logged in as {self.user}!')
@@ -36,14 +84,31 @@ class DabloonBot(discord.Client):
         print(f'Author ID: {message.author.id}')
 
 
-TOKEN = environ["DISCORD_TOKEN"]
-
 client = DabloonBot()
 tree = app_commands.CommandTree(client)
 
 # Data Store
 Users: {discord.User.id: dabloons.DabloonUser} = {}
 Bounties: {str: dabloons.DabloonBounty} = {}
+
+
+# Views
+class ConfirmBountyClaim(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.value = None
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('Confirmed')
+        self.value = True
+        self.stop()
+
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.red)
+    async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('Declined')
+        self.value = False
+        self.stop()
 
 
 # Helpers
@@ -79,14 +144,33 @@ async def message_bounty_author(interaction: discord.Interaction, bounty: dabloo
     bountyAuthor = client.get_user(bounty.author.id)
     dm_channel = await client.create_dm(bountyAuthor)
 
-    await dm_channel.send(f'**{client.get_user(request.claimee.id).display_name}** has sent you claim request '
-                          f'on your bounty: *{bounty.title}*')
+    confirmView = ConfirmBountyClaim()
+
+    await dm_channel.send(content=f'**{client.get_user(request.claimee.id).display_name}** has sent you claim request '
+                          f'on your bounty: *{bounty.title}*', view=confirmView)
 
 
 async def check_if_user(interaction: discord.Interaction):
     if interaction.user.id not in Users:
         return False
     return True
+
+
+async def build_emoji_total(interaction: discord.Interaction, total: int):
+    tens = total // 10
+    total -= 10 * tens
+    fives = total // 5
+    total -= 5 * fives
+    ones = total // 1
+
+    tensStr = f'<:{TEN_DABLOON_EMOJI_NAME}:{client.emojiEnabledGuilds[interaction.guild][TEN_DABLOON_EMOJI_NAME]}>' \
+              * tens
+    fivesStr = f'<:{FIVE_DABLOON_EMOJI_NAME}:{client.emojiEnabledGuilds[interaction.guild][FIVE_DABLOON_EMOJI_NAME]}>' \
+               * fives
+    onesStr = f'<:{ONE_DABLOON_EMOJI_NAME}:{client.emojiEnabledGuilds[interaction.guild][ONE_DABLOON_EMOJI_NAME]}>' \
+              * ones
+
+    return tensStr + fivesStr + onesStr
 
 
 # Commands
@@ -216,6 +300,43 @@ async def check_pending_bounty_requests(interaction: discord.Interaction):
         claimsEmbed.add_field(name=claim, value=f'Claims: {userBountyClaims[claim]}')
 
     await interaction.response.send_message(embed=claimsEmbed)
+
+
+@tree.command(name='display_user', description='Displays the dabloon info of a user (defaults to self)')
+async def display_user(interaction: discord.Interaction, user: discord.User):
+    # await interaction.response.defer()
+    members = await get_all_users(interaction)
+    if user not in members:
+        await interaction.response.send_message(f'Invalid User')
+        return
+
+    if not await check_if_user(interaction=interaction):
+        await interaction.response.send_message(f'{user.display_name} is not a Dabloon user')
+        return
+
+    dabloonUser = Users[user.id]
+    dabloonTotal = dabloonUser.dabloonCount
+
+    userInfo = discord.Embed(title=f'{user.display_name}', colour=0x00FF00)
+    userInfo.set_image(url=user.display_avatar)
+    if interaction.guild in client.emojiEnabledGuilds:
+        totalDisplay = await build_emoji_total(interaction=interaction, total=dabloonTotal)
+        if len(totalDisplay) > 1024:
+            userInfo.add_field(name='Dabloons', value=f'Total: {dabloonTotal}', inline=True)
+        else:
+            userInfo.add_field(name='Dabloons',
+                               value=f'Total: {dabloonTotal}\n{await build_emoji_total(interaction=interaction, total=dabloonTotal)}',
+                               inline=True)
+    else:
+        userInfo.add_field(name='Dabloons', value=f'Total: {dabloonTotal}', inline=True)
+
+    await interaction.response.send_message(embed=userInfo)
+
+
+@tree.command(name='set_dabloons', description='set dabloons')
+async def set_dabloons(interaction: discord.Interaction, user: discord.User, amount: int):
+    Users[user.id].dabloonCount = amount
+    await interaction.response.send_message(f'Set {user}\'s dabloon total to {amount} dabloons')
 
 
 client.run(TOKEN)
