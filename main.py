@@ -29,6 +29,27 @@ FIVE_DABLOON_EMOJI_NAME = environ["FIVE_DABLOON_EMOJI"]
 TEN_DABLOON_EMOJI_NAME = environ["TEN_DABLOON_EMOJI"]
 
 
+# Views
+class ConfirmBountyClaim(discord.ui.View):
+    def __init__(self, claim: dabloons.ClaimRequest):
+        super().__init__(timeout=None)
+        self.value = None
+        self.request = claim
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="persistent_claim:confirm")
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('Confirmed')
+        self.value = True
+        self.stop()
+
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.red, custom_id="persistent_claim:decline")
+    async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('Declined')
+        self.value = False
+        self.stop()
+
+
+# Client
 class DabloonBot(discord.Client):
 
     def __init__(self):
@@ -80,8 +101,15 @@ class DabloonBot(discord.Client):
         print(f'Logged in as {self.user}!')
 
     async def on_message(self, message):
-        print(f'Message from {message.author}: {message.content}')
-        print(f'Author ID: {message.author.id}')
+        if message.author.id == self.user.id:
+            return
+
+        if "https://x.com/" in message.content:
+            new_message = message.content.replace("https://x.com/", "https://fxtwitter.com/")
+            await message.reply(new_message)
+
+    # async def setup_hook(self) -> None:
+    #     self.add_view(ConfirmBountyClaim(claim=))
 
 
 client = DabloonBot()
@@ -90,25 +118,6 @@ tree = app_commands.CommandTree(client)
 # Data Store
 Users: {discord.User.id: dabloons.DabloonUser} = {}
 Bounties: {str: dabloons.DabloonBounty} = {}
-
-
-# Views
-class ConfirmBountyClaim(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.value = None
-
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('Confirmed')
-        self.value = True
-        self.stop()
-
-    @discord.ui.button(label="Decline", style=discord.ButtonStyle.red)
-    async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('Declined')
-        self.value = False
-        self.stop()
 
 
 # Helpers
@@ -141,17 +150,23 @@ async def delete_bounty_autocomplete(interaction: discord.Interaction, current: 
 
 async def message_bounty_author(interaction: discord.Interaction, bounty: dabloons.DabloonBounty,
                                 request: dabloons.ClaimRequest):
+    claimeeUser = client.get_user(request.claimee.id)
     bountyAuthor = client.get_user(bounty.author.id)
     dm_channel = await client.create_dm(bountyAuthor)
 
-    confirmView = ConfirmBountyClaim()
+    confirmEmbed = discord.Embed(title='Bounty Submission', colour=0xFFA500)
+    confirmEmbed.set_author(name=f'{claimeeUser.display_name}', icon_url=claimeeUser.display_avatar, url='')
+    confirmEmbed.add_field(name=f'{bounty.title}', value=f'{request.description}', inline=False)
+    confirmView = ConfirmBountyClaim(request)
 
     await dm_channel.send(content=f'**{client.get_user(request.claimee.id).display_name}** has sent you claim request '
-                          f'on your bounty: *{bounty.title}*', view=confirmView)
+                                  f'on your bounty: *{bounty.title}*', view=confirmView, embed=confirmEmbed)
+
+    _log.info('Interaction done')
 
 
-async def check_if_user(interaction: discord.Interaction):
-    if interaction.user.id not in Users:
+async def check_if_user(user: discord.User):
+    if user.id not in Users:
         return False
     return True
 
@@ -232,14 +247,17 @@ async def delete_bounty(interaction: discord.Interaction, title: str):
 
 @tree.command(name='claim_bounty', description='Claim a bounty that is currently posted')
 @app_commands.autocomplete(bounty=claim_bounty_autocomplete)
-async def claim_bounty(interaction: discord.Interaction, bounty: str):
+async def claim_bounty(interaction: discord.Interaction, bounty: str, media1: discord.Attachment = None,
+                       media2: discord.Attachment = None, media3: discord.Attachment = None,
+                       media4: discord.Attachment = None, description: str = None):
     await interaction.response.defer()
     if bounty not in Bounties:
         await interaction.response.send_message('Please enter a valid bounty name')
         return
 
     target_bounty = Bounties[bounty]
-    request = dabloons.ClaimRequest(claimee=Users[interaction.user.id])
+    request = dabloons.ClaimRequest(claimee=Users[interaction.user.id],
+                                    media=[media1, media2, media3, media4], description=description)
 
     await message_bounty_author(interaction=interaction, bounty=target_bounty,
                                 request=request)
@@ -310,7 +328,7 @@ async def display_user(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(f'Invalid User')
         return
 
-    if not await check_if_user(interaction=interaction):
+    if not await check_if_user(user=user):
         await interaction.response.send_message(f'{user.display_name} is not a Dabloon user')
         return
 
