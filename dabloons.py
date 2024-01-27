@@ -55,5 +55,10 @@ class DabloonBounty:
     def reject_claim(self, request):
         del request
 
+def write_to_json_database():
+    pass
+
+def read_from_json_database():
+    pass
 
 

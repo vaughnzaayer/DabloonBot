@@ -104,9 +104,15 @@ class DabloonBot(discord.Client):
         if message.author.id == self.user.id:
             return
 
-        if "https://x.com/" in message.content:
-            new_message = message.content.replace("https://x.com/", "https://fxtwitter.com/")
-            await message.reply(new_message)
+        if "https://x.com/" or "https://twitter.com/" in message.content:
+            active_channel = message.channel
+            message_prefix = f"From <@{message.author.id}>: "
+            if "https://twitter.com/" in message.content:
+                new_message = message_prefix + message.content.replace("https://twitter.com/", "https://fxtwitter.com/")
+            else:
+                new_message = message_prefix + message.content.replace("https://x.com/", "https://fxtwitter.com/")
+            await active_channel.send(new_message)
+            await message.delete()
 
     # async def setup_hook(self) -> None:
     #     self.add_view(ConfirmBountyClaim(claim=))
