@@ -67,6 +67,8 @@ class DabloonBot(discord.Client):
         if self.tenDabloonEmoji != "":
             self.tenDabloonEmoji = TEN_DABLOON_EMOJI_NAME
 
+        self.twitterLinks = ["https://twitter.com/", "https://x.com/"]
+
     async def validate_emojis(self):
         async for guild in self.fetch_guilds(limit=10):
             emojis: {str: discord.Emoji.id} = {}
@@ -104,14 +106,14 @@ class DabloonBot(discord.Client):
         if message.author.id == self.user.id:
             return
 
-        if "https://x.com/" in message.content:
-            active_channel = message.channel
-            message_prefix = f"From <@{message.author.id}>: "
-            new_message = message_prefix + message.content.replace("https://x.com/", "https://fxtwitter.com/")
-            await active_channel.send(new_message)
-            await message.delete()
-        else:
-            return
+        for link in self.twitterLinks:
+            if link in message.content:
+                active_channel = message.channel
+                message_prefix = f"From <@{message.author.id}>: "
+                new_message = message_prefix + message.content.replace(link, "https://fxtwitter.com/")
+                await active_channel.send(new_message)
+                await message.delete()
+
 
     # async def setup_hook(self) -> None:
     #     self.add_view(ConfirmBountyClaim(claim=))
