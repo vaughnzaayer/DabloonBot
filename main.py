@@ -113,6 +113,7 @@ class DabloonBot(discord.Client):
                 new_message = message_prefix + message.content.replace(link, "https://fxtwitter.com/")
                 await active_channel.send(new_message)
                 await message.delete()
+                break
 
 
     # async def setup_hook(self) -> None:
