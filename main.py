@@ -1,4 +1,5 @@
 import copy
+import random
 import string
 
 import discord
@@ -28,6 +29,7 @@ ONE_DABLOON_EMOJI_NAME = environ["ONE_DABLOON_EMOJI"]
 FIVE_DABLOON_EMOJI_NAME = environ["FIVE_DABLOON_EMOJI"]
 TEN_DABLOON_EMOJI_NAME = environ["TEN_DABLOON_EMOJI"]
 
+BRICKLAYER_EMOJI_NAME = environ["BRICKLAYER_EMOJI"]
 
 # Views
 class ConfirmBountyClaim(discord.ui.View):
@@ -60,6 +62,9 @@ class DabloonBot(discord.Client):
         self.tenDabloonEmoji = None
         self.emojiEnabledGuilds: {discord.Guild: {str: discord.Emoji.id}} = {}
 
+        self.bricklayerEmoji = None
+        self.bricklayerEnabledGuilds: {discord.Guild: {str: discord.Emoji.id}} = {}
+
         if ONE_DABLOON_EMOJI_NAME != "":
             self.oneDabloonEmoji = ONE_DABLOON_EMOJI_NAME
         if self.fiveDabloonEmoji != "":
@@ -67,7 +72,22 @@ class DabloonBot(discord.Client):
         if self.tenDabloonEmoji != "":
             self.tenDabloonEmoji = TEN_DABLOON_EMOJI_NAME
 
+        if self.bricklayerEmoji != "":
+            self.bricklayerEmoji = BRICKLAYER_EMOJI_NAME
+
         self.twitterLinks = ["https://twitter.com/", "https://x.com/"]
+
+    async def check_for_bricklayer(self):
+        async for guild in self.fetch_guilds(limit=10):
+            _log.info(f'Checking {guild} for bricklayer')
+            emojis: {str: discord.Emoji.id} = {}
+            for emoji in await guild.fetch_emojis():
+                emojis[emoji.name] = emoji.id
+            if self.bricklayerEmoji in emojis:
+                self.bricklayerEnabledGuilds[guild] = {f'{BRICKLAYER_EMOJI_NAME}': emojis[f'{BRICKLAYER_EMOJI_NAME}']}
+                _log.info(f"Bricklayer {guild} enabled")
+
+
 
     async def validate_emojis(self):
         async for guild in self.fetch_guilds(limit=10):
@@ -98,6 +118,7 @@ class DabloonBot(discord.Client):
 
     async def on_ready(self):
         await self.validate_emojis()
+        await self.check_for_bricklayer()
         await tree.sync()
         self.synced = True
         print(f'Logged in as {self.user}!')
@@ -115,6 +136,13 @@ class DabloonBot(discord.Client):
                 await message.delete()
                 break
 
+        if message.guild in self.bricklayerEnabledGuilds:
+            _log.info(f'Bricklayer enabled for {message.guild}')
+            if message.author.id == 256267024852975627:
+                _log.info('bricklayer!')
+                if random.randint(0, 35) == 1:
+                    bricklayer_reply = f'<:{self.bricklayerEmoji}:{self.bricklayerEnabledGuilds[message.guild][BRICKLAYER_EMOJI_NAME]}>'
+                    await message.reply(content=bricklayer_reply)
 
     # async def setup_hook(self) -> None:
     #     self.add_view(ConfirmBountyClaim(claim=))
