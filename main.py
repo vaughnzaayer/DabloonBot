@@ -137,10 +137,10 @@ class DabloonBot(discord.Client):
                 break
 
         if message.guild in self.bricklayerEnabledGuilds:
-            _log.info(f'Bricklayer enabled for {message.guild}')
             if message.author.id == 256267024852975627:
-                _log.info('bricklayer!')
-                if random.randint(0, 35) == 1:
+                rand_chance = random.randint(0, 35)
+                _log.info(f'bricklayer roll: {rand_chance}')
+                if rand_chance == 1:
                     bricklayer_reply = f'<:{self.bricklayerEmoji}:{self.bricklayerEnabledGuilds[message.guild][BRICKLAYER_EMOJI_NAME]}>'
                     await message.reply(content=bricklayer_reply)
 
